@@ -45,6 +45,7 @@ export interface Company {
   capital: number;
   address: string;
   website?: string; // New Website Field
+  businessLogo?: string;
   status: 'Active' | 'Liquidated' | 'Bankruptcy' | 'Inactive';
   reports: AnnualReport[];
   history: AuditLog[];

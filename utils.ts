@@ -1,3 +1,4 @@
+
 // Simple simulation of a SHA-256 like hex string generation
 export const generateHash = (input: string): string => {
   let hash = 0;
@@ -11,12 +12,12 @@ export const generateHash = (input: string): string => {
   return '0x' + Math.abs(hash).toString(16).padStart(64, '0').substring(0, 64);
 };
 
-export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-SL', { style: 'currency', currency: 'SLE' }).format(amount);
+export const formatCurrency = (amount: number, locale: string = 'en-SL') => {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'SLE' }).format(amount);
 };
 
-export const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-GB', {
+export const formatDate = (dateString: string, locale: string = 'en-GB') => {
+  return new Date(dateString).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric'

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Company, LegalForm, ReportStatus, ViewState, AuditLog, AnnualReport } from './types';
 import { generateHash, formatCurrency, formatDate } from './utils';
 import { SearchFilters } from './components/SearchFilters';
@@ -37,7 +37,8 @@ import {
   Plus,
   Image as ImageIcon,
   MapPin,
-  Video
+  Video,
+  Calendar
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -108,7 +109,7 @@ const INITIAL_COMPANIES: Company[] = [
     capital: 25000,
     address: '5 Bo-Kenema Highway, Bo',
     website: 'www.bo-agri.org',
-    businessLogo: '',
+    businessLogo: '', 
     status: 'Active',
     managementBoard: ['Chief Kamara'],
     contactEmail: 'contact@bo-agri.org',
@@ -127,10 +128,11 @@ const INITIAL_COMPANIES: Company[] = [
 ];
 
 type Tab = 'GENERAL' | 'REPORTS' | 'GOVERNANCE' | 'HISTORY' | 'VISUALIZER';
-
 type ExtendedViewState = ViewState | 'PORTAL_LOGIN' | 'PORTAL_DASHBOARD' | 'PORTAL_FILE_REPORT' | 'PORTAL_EDIT_DETAILS' | 'NAME_CHECK' | 'OPEN_DATA';
+type LangCode = 'en' | 'zh' | 'fr' | 'es' | 'hi' | 'ru';
 
-// --- TRANSLATIONS ---
+// --- TRANSLATIONS & DICTIONARY ---
+
 const TRANSLATIONS = {
   en: {
     directoryTitle: 'SL Business Directory',
@@ -154,7 +156,29 @@ const TRANSLATIONS = {
     reject: 'Reject',
     businessLogin: 'Business Login',
     registryCode: 'Registry Code / Business ID',
-    home: 'Home'
+    home: 'Home',
+    legalForm: 'Legal Form',
+    registered: 'Registered',
+    capital: 'Capital',
+    viewDetails: 'View Details',
+    details: 'Details',
+    address: 'Address',
+    topMembers: 'Top Members',
+    contact: 'Contact',
+    email: 'Email',
+    phone: 'Phone',
+    beneficialOwners: 'Beneficial Owners',
+    commercialPledges: 'Commercial Pledges',
+    taxStatus: 'Tax Status',
+    goodStanding: 'Good Standing',
+    taxDebt: 'Tax Debt Found',
+    year: 'Year',
+    filedBy: 'Filed By',
+    visualizer: 'Visualizer',
+    generalInfo: 'General Info',
+    governance: 'Governance & Risk',
+    history: 'History',
+    reports: 'Reports'
   },
   zh: {
     directoryTitle: '塞拉利昂商业目录 (SL Registry)',
@@ -165,7 +189,7 @@ const TRANSLATIONS = {
     dashboard: '仪表板',
     search: '目录搜索',
     openData: '开放数据',
-    langName: '中文 (Chinese)',
+    langName: '中文',
     pendingReports: '待处理报告',
     approvedReports: '已批准报告',
     fileReport: '提交年度报告',
@@ -178,12 +202,34 @@ const TRANSLATIONS = {
     reject: '拒绝',
     businessLogin: '企业登录',
     registryCode: '注册码 / 企业ID',
-    home: '首页'
+    home: '首页',
+    legalForm: '法律形式',
+    registered: '注册',
+    capital: '首都',
+    viewDetails: '查看详情',
+    details: '详情',
+    address: '地址',
+    topMembers: '高级成员',
+    contact: '联系',
+    email: '电子邮件',
+    phone: '电话',
+    beneficialOwners: '受益所有人',
+    commercialPledges: '商业质押',
+    taxStatus: '税务状况',
+    goodStanding: '信誉良好',
+    taxDebt: '发现税务债务',
+    year: '年',
+    filedBy: '提交人',
+    visualizer: '可视化',
+    generalInfo: '基本信息',
+    governance: '治理与风险',
+    history: '历史',
+    reports: '报告'
   },
   fr: {
     directoryTitle: 'Répertoire des Entreprises SL',
     searchPlaceholder: 'Rechercher par nom ou code...',
-    checkName: 'Vérifier la Disponibilité du Nom',
+    checkName: 'Vérifier la Disponibilité',
     login: 'Connexion',
     myPortal: 'Mon Portail',
     dashboard: 'Tableau de Bord',
@@ -192,7 +238,7 @@ const TRANSLATIONS = {
     langName: 'Français',
     pendingReports: 'Rapports en attente',
     approvedReports: 'Rapports approuvés',
-    fileReport: 'Déposer le rapport annuel',
+    fileReport: 'Déposer le rapport',
     editProfile: 'Modifier le profil',
     status: 'Statut',
     revenue: 'Revenu (SLE)',
@@ -202,36 +248,273 @@ const TRANSLATIONS = {
     reject: 'Rejeter',
     businessLogin: 'Connexion Entreprise',
     registryCode: 'Code de registre / ID',
-    home: 'Accueil'
+    home: 'Accueil',
+    legalForm: 'Forme Juridique',
+    registered: 'Enregistré',
+    capital: 'Capital',
+    viewDetails: 'Voir Détails',
+    details: 'Détails',
+    address: 'Adresse',
+    topMembers: 'Membres Principaux',
+    contact: 'Contact',
+    email: 'Email',
+    phone: 'Téléphone',
+    beneficialOwners: 'Bénéficiaires Effectifs',
+    commercialPledges: 'Gages Commerciaux',
+    taxStatus: 'Statut Fiscal',
+    goodStanding: 'En Règle',
+    taxDebt: 'Dette Fiscale Trouvée',
+    year: 'Année',
+    filedBy: 'Déposé Par',
+    visualizer: 'Visualiseur',
+    generalInfo: 'Infos Générales',
+    governance: 'Gouvernance',
+    history: 'Historique',
+    reports: 'Rapports'
+  },
+  es: {
+    directoryTitle: 'Directorio de Empresas SL',
+    searchPlaceholder: 'Buscar por nombre o código...',
+    checkName: 'Verificar Nombre',
+    login: 'Acceso',
+    myPortal: 'Mi Portal',
+    dashboard: 'Tablero',
+    search: 'Búsqueda',
+    openData: 'Datos Abiertos',
+    langName: 'Español',
+    pendingReports: 'Informes Pendientes',
+    approvedReports: 'Informes Aprobados',
+    fileReport: 'Presentar Informe',
+    editProfile: 'Editar Perfil',
+    status: 'Estado',
+    revenue: 'Ingresos (SLE)',
+    txVolume: 'Volumen Tx',
+    actions: 'Acciones',
+    approve: 'Aprobar',
+    reject: 'Rechazar',
+    businessLogin: 'Acceso Empresarial',
+    registryCode: 'Código de Registro',
+    home: 'Inicio',
+    legalForm: 'Forma Legal',
+    registered: 'Registrado',
+    capital: 'Capital',
+    viewDetails: 'Ver Detalles',
+    details: 'Detalles',
+    address: 'Dirección',
+    topMembers: 'Miembros Principales',
+    contact: 'Contacto',
+    email: 'Correo',
+    phone: 'Teléfono',
+    beneficialOwners: 'Propietarios Beneficiarios',
+    commercialPledges: 'Prendas Comerciales',
+    taxStatus: 'Estado Fiscal',
+    goodStanding: 'Buen Estado',
+    taxDebt: 'Deuda Fiscal Encontrada',
+    year: 'Año',
+    filedBy: 'Presentado Por',
+    visualizer: 'Visualizador',
+    generalInfo: 'Info General',
+    governance: 'Gobernanza',
+    history: 'Historial',
+    reports: 'Informes'
+  },
+  hi: {
+    directoryTitle: 'सिएरा लियोन व्यापार निर्देशिका',
+    searchPlaceholder: 'कंपनी का नाम या कोड खोजें...',
+    checkName: 'नाम की उपलब्धता जांचें',
+    login: 'लॉग इन',
+    myPortal: 'मेरा पोर्टल',
+    dashboard: 'डैशबोर्ड',
+    search: 'निर्देशिका खोज',
+    openData: 'खुला डेटा',
+    langName: 'हिन्दी',
+    pendingReports: 'लंबित रिपोर्ट',
+    approvedReports: 'स्वीकृत रिपोर्ट',
+    fileReport: 'वार्षिक रिपोर्ट दर्ज करें',
+    editProfile: 'प्रोफ़ाइल संपादित करें',
+    status: 'स्थिति',
+    revenue: 'राजस्व (SLE)',
+    txVolume: 'लेनदेन की मात्रा',
+    actions: 'क्रियाएँ',
+    approve: 'मंजूर करें',
+    reject: 'अस्वीकार करें',
+    businessLogin: 'व्यापार लॉग इन',
+    registryCode: 'रजिस्ट्री कोड / आईडी',
+    home: 'घर',
+    legalForm: 'कानूनी रूप',
+    registered: 'पंजीकृत',
+    capital: 'पूंजी',
+    viewDetails: 'विवरण देखें',
+    details: 'विवरण',
+    address: 'पता',
+    topMembers: 'शीर्ष सदस्य',
+    contact: 'संपर्क',
+    email: 'ईमेल',
+    phone: 'फ़ोन',
+    beneficialOwners: 'लाभकारी स्वामी',
+    commercialPledges: 'वाणिज्यिक प्रतिज्ञाएँ',
+    taxStatus: 'कर स्थिति',
+    goodStanding: 'अच्छी स्थिति',
+    taxDebt: 'कर ऋण मिला',
+    year: 'वर्ष',
+    filedBy: 'द्वारा दायर',
+    visualizer: 'विजुअलाइज़र',
+    generalInfo: 'सामान्य जानकारी',
+    governance: 'शासन और जोखिम',
+    history: 'इतिहास',
+    reports: 'रिपोर्ट'
+  },
+  ru: {
+    directoryTitle: 'Бизнес-справочник Сьерра-Леоне',
+    searchPlaceholder: 'Поиск по названию или коду...',
+    checkName: 'Проверить имя',
+    login: 'Войти',
+    myPortal: 'Мой портал',
+    dashboard: 'Панель',
+    search: 'Поиск',
+    openData: 'Открытые данные',
+    langName: 'Русский',
+    pendingReports: 'Ожидающие отчеты',
+    approvedReports: 'Утвержденные отчеты',
+    fileReport: 'Подать отчет',
+    editProfile: 'Редактировать',
+    status: 'Статус',
+    revenue: 'Выручка (SLE)',
+    txVolume: 'Объем транзакций',
+    actions: 'Действия',
+    approve: 'Одобрить',
+    reject: 'Отклонить',
+    businessLogin: 'Бизнес-вход',
+    registryCode: 'Код регистрации',
+    home: 'Главная',
+    legalForm: 'Правовая форма',
+    registered: 'Зарегистрировано',
+    capital: 'Капитал',
+    viewDetails: 'Подробнее',
+    details: 'Детали',
+    address: 'Адрес',
+    topMembers: 'Руководство',
+    contact: 'Контакты',
+    email: 'Email',
+    phone: 'Телефон',
+    beneficialOwners: 'Бенефициары',
+    commercialPledges: 'Коммерческие залоги',
+    taxStatus: 'Налоговый статус',
+    goodStanding: 'Хорошая репутация',
+    taxDebt: 'Налоговая задолженность',
+    year: 'Год',
+    filedBy: 'Подано',
+    visualizer: 'Визуализатор',
+    generalInfo: 'Общая инфо',
+    governance: 'Управление',
+    history: 'История',
+    reports: 'Отчеты'
   }
 };
 
-type LangCode = 'en' | 'zh' | 'fr';
+const DATA_DICTIONARY: Record<string, Record<string, string>> = {
+  'Lion Mountains Mining Ltd': {
+    zh: '狮山矿业有限公司',
+    fr: 'Mines des Montagnes du Lion Sarl',
+    es: 'Minería Montañas del León S.L.',
+    hi: 'लायन माउंटेन माइनिंग लिमिटेड',
+    ru: 'Lion Mountains Mining Ltd'
+  },
+  'Salone Tech Innovators': {
+    zh: '塞拉利昂科技创新者',
+    fr: 'Innovateurs Technologiques Salone',
+    es: 'Innovadores Tecnológicos Salone',
+    hi: 'सलोन टेक इनोवेटर्स',
+    ru: 'Salone Tech Innovators'
+  },
+  'Bo Agricultural Co-op': {
+    zh: '博城农业合作社',
+    fr: 'Coopérative Agricole de Bo',
+    es: 'Cooperativa Agrícola de Bo',
+    hi: 'बो कृषि सहकारी',
+    ru: 'Сельскохозяйственный кооператив Бо'
+  },
+  'Active': { zh: '活跃', fr: 'Actif', es: 'Activo', hi: 'सक्रिय', ru: 'Активный' },
+  'Private Limited Company': { zh: '私人有限公司', fr: 'Société à Responsabilité Limitée', es: 'Sociedad de Responsabilidad Limitada', hi: 'प्राइवेट लिमिटेड कंपनी', ru: 'Закрытое акционерное общество' },
+  'Public Limited Company': { zh: '股份有限公司', fr: 'Société Anonyme', es: 'Sociedad Anónima', hi: 'पब्लिक लिमिटेड कंपनी', ru: 'Открытое акционерное общество' },
+  'Non-Governmental Organization': { zh: '非政府组织', fr: 'Organisation Non Gouvernementale', es: 'Organización No Gubernamental', hi: 'गैर सरकारी संगठन', ru: 'Неправительственная организация' },
+  '12 Wilkinson Road, Freetown': { zh: '弗里敦威尔金森路12号', fr: '12 Rue Wilkinson, Freetown', es: 'Calle Wilkinson 12, Freetown', hi: '12 विल्किंसन रोड, फ्रीटाउन', ru: 'Уилкинсон Роуд 12, Фритаун' },
+  '45 Siaka Stevens Street, Freetown': { zh: '弗里敦西亚卡史蒂文斯街45号', fr: '45 Rue Siaka Stevens, Freetown', es: 'Calle Siaka Stevens 45, Freetown', hi: '45 सियाका स्टीवंस स्ट्रीट, फ्रीटाउन', ru: 'Улица Сиака Стивенса 45, Фритаун' },
+  '5 Bo-Kenema Highway, Bo': { zh: '博城博-凯内马公路5号', fr: '5 Autoroute Bo-Kenema, Bo', es: 'Carretera Bo-Kenema 5, Bo', hi: '5 बो-केनेमा हाईवे, बो', ru: 'Шоссе Бо-Кенема 5, Бо' },
+  'Approved': { zh: '已批准', fr: 'Approuvé', es: 'Aprobado', hi: 'स्वीकृत', ru: 'Одобрено' },
+  'Missing': { zh: '缺失', fr: 'Manquant', es: 'Faltante', hi: 'लापता', ru: 'Отсутствует' },
+  'Draft': { zh: '草案', fr: 'Brouillon', es: 'Borrador', hi: 'मसौदा', ru: 'Черновик' },
+  'Submitted': { zh: '已提交', fr: 'Soumis', es: 'Enviado', hi: 'प्रस्तुत', ru: 'Отправлено' },
+  'Rejected': { zh: '已拒绝', fr: 'Rejeté', es: 'Rechazado', hi: 'अस्वीकृत', ru: 'Отклонено' }
+};
 
-// --- ACCESSIBILITY COMPONENTS ---
+// --- ACCESSIBILITY COMPONENT ---
 
-const SignLanguageInterpreter: React.FC<{ isActive: boolean, isSigning: boolean }> = ({ isActive, isSigning }) => {
+const SignLanguageInterpreter: React.FC<{ isActive: boolean, isSigning: boolean, hoverText: string }> = ({ isActive, isSigning, hoverText }) => {
   if (!isActive) return null;
+
+  // Helper to map characters to Sign Language image URLs (Wikimedia Commons)
+  const getSignImage = (char: string) => {
+    const c = char.toLowerCase();
+    if (c >= 'a' && c <= 'z') {
+      return `https://commons.wikimedia.org/wiki/Special:FilePath/Sign_language_${c.toUpperCase()}.svg`;
+    }
+    if (c >= '0' && c <= '9') {
+       return `https://commons.wikimedia.org/wiki/Special:FilePath/Sign_language_${c}.svg`;
+    }
+    return null;
+  };
+
+  // Render the sentence as a stream of images
+  const renderSignSentence = (text: string) => {
+    if (!text) return <span className="text-yellow-100/50 text-xs italic">Hover over text to translate...</span>;
+
+    const chars = text.split('');
+    return (
+      <div className="flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide">
+        {chars.map((char, i) => {
+          const src = getSignImage(char);
+          if (char === ' ') {
+            return <div key={i} className="w-4 flex-shrink-0" />; // Spacer
+          }
+          if (src) {
+            return (
+              <div key={i} className="flex flex-col items-center flex-shrink-0">
+                <div className="w-8 h-8 bg-white rounded flex items-center justify-center p-0.5 shadow-sm">
+                   <img src={src} alt={`Sign for ${char}`} className="w-full h-full object-contain" />
+                </div>
+                <span className="text-[6px] text-yellow-100 uppercase mt-0.5 font-mono">{char}</span>
+              </div>
+            );
+          }
+          // Fallback for non-alphanumeric (e.g., punctuation or non-latin script)
+          return (
+             <span key={i} className="text-xs text-yellow-100 font-mono w-4 text-center flex-shrink-0">{char}</span>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed bottom-24 left-6 z-50 animate-bounce-in transition-all duration-300">
-        <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border-4 border-yellow-400 w-48">
+        <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border-4 border-yellow-400 w-80">
             <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">BSL Interpreter</span>
-                <div className={`h-2 w-2 rounded-full ${isSigning ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">BSL/ASL Interpreter</span>
+                <div className={`h-2 w-2 rounded-full ${isSigning || hoverText ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
             </div>
-            {/* Simulated Avatar Area */}
-            <div className="h-32 bg-slate-800 rounded-lg mb-2 flex items-center justify-center relative overflow-hidden group cursor-pointer border border-slate-700">
+            {/* Avatar Area */}
+            <div className="h-24 bg-slate-800 rounded-lg mb-2 flex items-center justify-center relative overflow-hidden border border-slate-700">
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-700 to-slate-800"></div>
                 
-                {/* Animated Avatar Representation */}
-                <div className={`relative transition-transform duration-300 ${isSigning ? 'scale-105' : ''}`}>
-                    <User className={`w-16 h-16 text-slate-500 transition-colors ${isSigning ? 'text-yellow-100' : ''}`} />
-                    {isSigning && (
+                {/* Visual Representation of the "Interpreter" */}
+                <div className={`relative transition-transform duration-300 flex items-center justify-center ${isSigning || hoverText ? 'scale-100' : 'scale-95 opacity-50'}`}>
+                   {/* If we have text, we show the stream below, so here we show a generic signing avatar state */}
+                   <User className={`w-12 h-12 text-slate-500 transition-colors ${isSigning || hoverText ? 'text-yellow-100' : ''}`} />
+                    {(isSigning || hoverText) && (
                         <>
-                            {/* Simulated Hand Movements */}
-                            <div className="absolute top-10 -left-2 w-4 h-4 bg-yellow-400 rounded-full opacity-60 animate-[ping_1s_infinite]"></div>
-                            <div className="absolute top-10 -right-2 w-4 h-4 bg-yellow-400 rounded-full opacity-60 animate-[ping_1s_infinite_0.5s]"></div>
+                            <div className="absolute top-4 -left-4 w-3 h-3 bg-yellow-400 rounded-full opacity-60 animate-[ping_0.8s_infinite]"></div>
+                            <div className="absolute top-4 -right-4 w-3 h-3 bg-yellow-400 rounded-full opacity-60 animate-[ping_0.8s_infinite_0.4s]"></div>
                         </>
                     )}
                 </div>
@@ -241,8 +524,14 @@ const SignLanguageInterpreter: React.FC<{ isActive: boolean, isSigning: boolean 
                     <Video className="w-2 h-2" /> LIVE
                 </div>
             </div>
-            <p className="text-[10px] text-center text-slate-400 animate-pulse">
-              {isSigning ? 'Translating to BSL...' : 'Interpreter Standing By'}
+            
+            {/* Sign Symbol Stream */}
+            <div className="min-h-[60px] bg-slate-800 rounded p-2 border border-slate-700 flex flex-col justify-center">
+                 {renderSignSentence(hoverText)}
+            </div>
+            
+            <p className="text-[8px] text-center text-slate-400 uppercase tracking-widest mt-1">
+              Visual Sign Translation
             </p>
         </div>
     </div>
@@ -259,6 +548,7 @@ export default function App() {
   // Accessibility State
   const [signLanguageMode, setSignLanguageMode] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  const [hoverText, setHoverText] = useState('');
 
   // Name Check State
   const [nameAvailability, setNameAvailability] = useState<'IDLE' | 'CHECKING' | 'AVAILABLE' | 'TAKEN'>('IDLE');
@@ -280,7 +570,54 @@ export default function App() {
   const [reportingCompanyId, setReportingCompanyId] = useState<string | null>(null);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
 
+  // Translation Helper for UI
   const t = (key: keyof typeof TRANSLATIONS.en) => TRANSLATIONS[lang][key] || key;
+
+  // Translation Helper for Data (Content)
+  const tData = (text: string | number | undefined) => {
+    if (text === undefined) return '';
+    
+    // Handle Numbers
+    if (typeof text === 'number') {
+        const localeMap: Record<LangCode, string> = { en: 'en-SL', zh: 'zh-CN', fr: 'fr-FR', es: 'es-ES', hi: 'hi-IN', ru: 'ru-RU' };
+        return new Intl.NumberFormat(localeMap[lang]).format(text);
+    }
+
+    // Handle Strings via Dictionary
+    if (lang === 'en') return text;
+    const entry = DATA_DICTIONARY[text];
+    if (entry && entry[lang]) {
+        return entry[lang];
+    }
+    return text;
+  };
+
+  // Currency Formatter Wrapper
+  const tCurrency = (amount: number) => {
+    const localeMap: Record<LangCode, string> = { en: 'en-SL', zh: 'zh-CN', fr: 'fr-FR', es: 'es-ES', hi: 'hi-IN', ru: 'ru-RU' };
+    return formatCurrency(amount, localeMap[lang]);
+  };
+
+  // Date Formatter Wrapper
+  const tDate = (date: string) => {
+    const localeMap: Record<LangCode, string> = { en: 'en-GB', zh: 'zh-CN', fr: 'fr-FR', es: 'es-ES', hi: 'hi-IN', ru: 'ru-RU' };
+    return formatDate(date, localeMap[lang]);
+  };
+
+  // Global Hover Handler for Sign Language
+  const handleGlobalMouseOver = (e: React.MouseEvent) => {
+    if (!signLanguageMode) return;
+    const target = e.target as HTMLElement;
+    // We try to get text from the specific element, or its closest block parent if it's a small inline tag
+    if (target.innerText && target.innerText.length > 0) {
+        // Clean up text (remove excessive newlines)
+        const cleanText = target.innerText.split('\n')[0].trim();
+        // Limit text length to prevent flooding the visualizer
+        if (cleanText.length > 0 && cleanText.length < 100) {
+            setHoverText(cleanText);
+        }
+    }
+  };
 
   // Filter Companies
   const filteredCompanies = useMemo(() => {
@@ -369,7 +706,6 @@ export default function App() {
     }));
   };
 
-  // User submits a report draft
   const handleUserSubmitReport = (companyId: string, year: number, revenue: number, txVolume: number) => {
     setCompanies(prev => prev.map(c => {
         if (c.id !== companyId) return c;
@@ -381,7 +717,6 @@ export default function App() {
             submissionDate: new Date().toISOString().split('T')[0],
             filedBy: currentUser?.name || 'User'
         };
-        // Remove old draft if exists for same year
         const otherReports = c.reports.filter(r => r.year !== year);
         return { ...c, reports: [newReport, ...otherReports] };
     }));
@@ -389,7 +724,6 @@ export default function App() {
     setView('PORTAL_DASHBOARD');
   };
 
-  // Admin approves/rejects report
   const handleAdminReviewReport = (companyId: string, year: number, approved: boolean) => {
     setCompanies(prev => prev.map(c => {
         if (c.id !== companyId) return c;
@@ -405,14 +739,12 @@ export default function App() {
     addAuditLog(companyId, action, `Annual Report ${year} ${approved ? 'Approved' : 'Rejected'} by Admin`, 'Registrar Admin');
   };
 
-  // Admin OR Business Owner Update
   const handleUpdateCompanyDetails = (companyId: string, updates: Partial<Company>) => {
     setCompanies(prev => prev.map(c => {
         if (c.id !== companyId) return c;
         return { ...c, ...updates };
     }));
     
-    // Create detailed log string
     const changes = Object.keys(updates).map(k => `${k} updated`).join(', ');
     const actor = currentUser?.role === 'BUSINESS' ? 'Business Admin' : 'Registrar Admin';
     const action = currentUser?.role === 'BUSINESS' ? 'BUSINESS_UPDATE' : 'ADMIN_UPDATE';
@@ -422,11 +754,10 @@ export default function App() {
     if (currentUser?.role === 'BUSINESS') {
         setView('PORTAL_DASHBOARD');
     } else {
-        setEditingCompanyId(null); // Close admin modal
+        setEditingCompanyId(null);
     }
   };
 
-  // Registrar Admin: Add New Entry
   const handleRegistrarAddEntry = (name: string, form: LegalForm, regCode: string) => {
       const newId = `c${Date.now()}`;
       const newCompany: Company = {
@@ -438,6 +769,7 @@ export default function App() {
           capital: 0,
           address: 'Pending Address Entry',
           businessLogo: '',
+          website: '',
           status: 'Active',
           managementBoard: [],
           contactEmail: '',
@@ -461,7 +793,6 @@ export default function App() {
       alert(`Entity "${name}" added to registry successfully.`);
   };
 
-  // --- DOWNLOAD HELPERS ---
   const downloadData = (format: 'JSON' | 'CSV' | 'XML') => {
      let content = '';
      let mimeType = '';
@@ -503,10 +834,9 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-             {/* Home Button */}
              <button 
                 onClick={() => setView('SEARCH')}
-                className="hidden sm:flex p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                 title={t('home')}
              >
                 <Home className="w-5 h-5" />
@@ -517,7 +847,7 @@ export default function App() {
              </button>
 
             <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-1 mr-2">
-                {(['en', 'zh', 'fr'] as LangCode[]).map((l) => (
+                {(['en', 'zh', 'fr', 'es', 'hi', 'ru'] as LangCode[]).map((l) => (
                     <button key={l} onClick={() => setLang(l)} className={`px-2 py-1 text-xs font-bold rounded ${lang === l ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}>
                         {l === 'zh' ? '中文' : l.toUpperCase()}
                     </button>
@@ -556,75 +886,735 @@ export default function App() {
         {signLanguageMode && (
             <div className="bg-yellow-50 border-t border-yellow-100 p-2 flex items-center justify-center gap-2 text-xs text-yellow-800 font-medium animate-pulse">
                 <Hand className="w-4 h-4" />
-                <span>Sign Language (BSL) Mode Active: Accessibility features enabled</span>
+                <span>Sign Language (BSL) Mode Active: Hover over text to translate</span>
             </div>
         )}
       </div>
     </nav>
   );
 
-  const renderLogin = () => (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-            <div className="bg-slate-900 p-6 text-center">
-                <ShieldCheck className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-white">{t('login')}</h2>
-            </div>
-            
-            <div className="flex border-b border-slate-200">
-                <button 
-                    onClick={() => setLoginTab('PERSONAL')}
-                    className={`flex-1 py-3 text-sm font-bold ${loginTab === 'PERSONAL' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    Personal ID
-                </button>
-                <button 
-                    onClick={() => setLoginTab('BUSINESS')}
-                    className={`flex-1 py-3 text-sm font-bold ${loginTab === 'BUSINESS' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    {t('businessLogin')}
-                </button>
-            </div>
-
-            <div className="p-8 space-y-4">
-                {loginTab === 'PERSONAL' ? (
-                    <>
-                        <button onClick={() => handleLogin('USER')} className="w-full flex items-center p-4 border rounded-xl hover:bg-blue-50 transition-all">
-                            <User className="w-6 h-6 text-blue-600 mr-4" />
-                            <div className="text-left">
-                                <h3 className="font-bold text-slate-900">Mobile ID / User Portal</h3>
-                                <p className="text-xs text-slate-500">For owners & board members</p>
-                            </div>
-                        </button>
-                        <button onClick={() => handleLogin('ADMIN')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-900">
-                            Login as Registrar Admin
-                        </button>
-                    </>
-                ) : (
-                    <form onSubmit={(e) => { e.preventDefault(); handleBusinessLogin(); }}>
-                        <div className="mb-4">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">{t('registryCode')}</label>
-                            <input 
-                                type="text" 
-                                value={businessIdInput}
-                                onChange={(e) => setBusinessIdInput(e.target.value)}
-                                className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-                                placeholder="e.g. SL-2023-..."
-                                required
-                            />
-                        </div>
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
-                            {t('login')}
-                        </button>
-                    </form>
-                )}
-            </div>
+  const renderSearch = () => (
+    <div className="bg-slate-50 min-h-[calc(100vh-64px)]">
+      <div className="bg-slate-900 text-white py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+        <div className="relative max-w-4xl mx-auto text-center z-10">
+          <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl mb-6">
+            {t('directoryTitle')}
+          </h2>
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10">
+            Official, real-time data on all companies, non-profits, and foundations. 
+            Secured by blockchain technology for absolute transparency.
+          </p>
+          
+          <div className="max-w-2xl mx-auto bg-white rounded-lg p-2 flex shadow-xl">
+             <div className="flex-grow relative">
+                <Search className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t('searchPlaceholder')}
+                  className="w-full pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none rounded-l-md"
+                />
+             </div>
+             <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md font-medium transition-colors">
+               {t('search')}
+             </button>
+          </div>
+          
+          <div className="mt-6 flex justify-center gap-4 text-sm text-slate-400">
+            <button onClick={() => setShowFilters(!showFilters)} className="hover:text-white underline decoration-dotted underline-offset-4 flex items-center">
+              {showFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
+            </button>
+          </div>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
+        {showFilters && (
+           <SearchFilters 
+             searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+             selectedForm={selectedForm} setSelectedForm={setSelectedForm}
+             minCapital={minCapital} setMinCapital={setMinCapital}
+             dateFrom={dateFrom} setDateFrom={setDateFrom}
+           />
+        )}
+
+        <div className="bg-white shadow-lg rounded-lg border border-slate-200 overflow-hidden mt-8">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <h3 className="font-semibold text-slate-700">Directory Results</h3>
+            <span className="text-xs text-slate-500 bg-white border px-2 py-1 rounded-full">{tData(filteredCompanies.length)} records found</span>
+          </div>
+          <ul role="list" className="divide-y divide-slate-100">
+            {filteredCompanies.map((company) => (
+              <li key={company.id} className="hover:bg-blue-50/50 transition-colors">
+                <div 
+                  onClick={() => handleViewCompany(company.id)}
+                  className="block cursor-pointer px-6 py-5"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0 h-12 w-12 flex items-center justify-center overflow-hidden border border-blue-200">
+                        {company.businessLogo ? (
+                            <img src={company.businessLogo} alt={company.name} className="h-full w-full object-cover" />
+                        ) : (
+                            <Building2 className="w-6 h-6 text-blue-600" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                           <p className="text-base font-bold text-blue-900 hover:text-blue-700">{tData(company.name)}</p>
+                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                                company.status === 'Active' 
+                                ? 'bg-green-100 text-green-800 border-green-200' 
+                                : 'bg-red-100 text-red-800 border-red-200'
+                           }`}>
+                                {tData(company.status)}
+                           </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">CODE: {company.registryCode}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pl-12">
+                    <div>
+                      <span className="text-xs text-slate-400 uppercase font-semibold">{t('legalForm')}</span>
+                      <p className="text-sm text-slate-700 font-medium">{tData(company.legalForm)}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400 uppercase font-semibold">{t('registered')}</span>
+                      <p className="text-sm text-slate-700">{tDate(company.registrationDate)}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400 uppercase font-semibold">{t('capital')}</span>
+                      <p className="text-sm text-slate-700">{tCurrency(company.capital)}</p>
+                    </div>
+                     <div className="flex justify-end items-end">
+                       <span className="text-blue-600 text-sm font-medium flex items-center hover:underline">
+                         {t('viewDetails')} <ChevronRight className="w-4 h-4 ml-1" />
+                       </span>
+                     </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 
-  const renderEditCompanyDetails = () => {
+  const renderCompanyDetail = () => {
+    if (!selectedCompany) return null;
+
+    const tabs: {id: Tab, label: string, icon: React.ReactNode}[] = [
+        { id: 'GENERAL', label: t('generalInfo'), icon: <Building2 className="w-4 h-4" /> },
+        { id: 'GOVERNANCE', label: t('governance'), icon: <AlertTriangle className="w-4 h-4" /> },
+        { id: 'REPORTS', label: t('reports'), icon: <FileText className="w-4 h-4" /> },
+        { id: 'VISUALIZER', label: t('visualizer'), icon: <Network className="w-4 h-4" /> },
+        { id: 'HISTORY', label: t('history'), icon: <History className="w-4 h-4" /> },
+    ];
+
+    return (
+      <div className="bg-slate-50 min-h-[calc(100vh-64px)] pb-12">
+        <div className="bg-white border-b border-slate-200">
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <button onClick={() => setView('SEARCH')} className="flex items-center text-sm text-slate-500 hover:text-blue-600 transition-colors mb-4">
+                <ArrowLeft className="w-4 h-4 mr-1" /> {t('directoryTitle')}
+              </button>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                 <div className="flex items-start gap-4">
+                    <div className="bg-white border border-slate-200 rounded-xl shadow-lg h-20 w-20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {selectedCompany.businessLogo ? (
+                            <img src={selectedCompany.businessLogo} alt={selectedCompany.name} className="h-full w-full object-cover" />
+                        ) : (
+                            <Building2 className="w-10 h-10 text-slate-300" />
+                        )}
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">{tData(selectedCompany.name)}</h1>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-1 text-sm">
+                            <span className="font-mono text-slate-500">{selectedCompany.registryCode}</span>
+                            <span className="hidden sm:inline w-1 h-1 bg-slate-300 rounded-full"></span>
+                            <span className="text-slate-600">{tData(selectedCompany.legalForm)}</span>
+                            
+                            {selectedCompany.website && (
+                                <>
+                                    <span className="hidden sm:inline w-1 h-1 bg-slate-300 rounded-full"></span>
+                                    <a href={`https://${selectedCompany.website}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                                        <Globe className="w-3 h-3" />
+                                        {selectedCompany.website}
+                                    </a>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="flex space-x-1 mt-8 overflow-x-auto scrollbar-hide">
+                 {tabs.map(tab => (
+                     <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-t-lg transition-all whitespace-nowrap ${
+                            activeTab === tab.id 
+                            ? 'bg-slate-50 text-blue-600 border border-slate-200 border-b-transparent relative top-[1px]' 
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        }`}
+                     >
+                        {tab.icon}
+                        {tab.label}
+                     </button>
+                 ))}
+              </div>
+           </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-white rounded-b-xl rounded-tr-xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
+                {activeTab === 'GENERAL' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('details')}</h3>
+                            <dl className="space-y-4">
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('legalForm')}</dt>
+                                    <dd className="text-sm text-slate-900 col-span-2">{tData(selectedCompany.legalForm)}</dd>
+                                </div>
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('status')}</dt>
+                                    <dd className="text-sm text-slate-900 col-span-2">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedCompany.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {tData(selectedCompany.status)}
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('capital')}</dt>
+                                    <dd className="text-sm text-slate-900 col-span-2">{tCurrency(selectedCompany.capital)}</dd>
+                                </div>
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('address')}</dt>
+                                    <dd className="text-sm text-slate-900 col-span-2">{tData(selectedCompany.address)}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div>
+                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('topMembers')}</h3>
+                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
+                                <ul className="space-y-3">
+                                    {selectedCompany.managementBoard.map((member, i) => (
+                                        <li key={i} className="text-sm text-slate-900 flex items-center gap-3">
+                                            <div className="bg-white p-1 rounded-full shadow-sm">
+                                                <User className="w-4 h-4 text-slate-500" />
+                                            </div>
+                                            <span className="font-medium">{member}</span>
+                                        </li>
+                                    ))}
+                                    {selectedCompany.managementBoard.length === 0 && <li className="text-sm text-slate-500 italic">No board members listed</li>}
+                                </ul>
+                             </div>
+
+                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('contact')}</h3>
+                             <dl className="space-y-4">
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('email')}</dt>
+                                    <dd className="text-sm text-blue-600 col-span-2">{selectedCompany.contactEmail || 'N/A'}</dd>
+                                </div>
+                                <div className="grid grid-cols-3">
+                                    <dt className="text-sm font-medium text-slate-500">{t('phone')}</dt>
+                                    <dd className="text-sm text-slate-900 col-span-2">{selectedCompany.contactPhone || 'N/A'}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'GOVERNANCE' && (
+                     <div className="animate-fadeIn grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div className="space-y-6">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('beneficialOwners')}</h3>
+                                <ul className="space-y-2">
+                                    {selectedCompany.beneficialOwners.map((owner, i) => (
+                                        <li key={i} className="flex items-center gap-2 text-sm bg-slate-50 p-2 rounded">
+                                            <Users className="w-4 h-4 text-slate-400" />
+                                            {owner}
+                                        </li>
+                                    ))}
+                                    {selectedCompany.beneficialOwners.length === 0 && <li className="text-sm text-slate-500">No data available</li>}
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('commercialPledges')}</h3>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-yellow-100 p-2 rounded-lg">
+                                        <FileText className="w-5 h-5 text-yellow-700" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-900">{tData(selectedCompany.commercialPledges)}</p>
+                                        <p className="text-xs text-slate-500">Active Pledges</p>
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+                         <div className="space-y-6">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b pb-2">{t('taxStatus')}</h3>
+                                {selectedCompany.taxDebt > 0 ? (
+                                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-3">
+                                        <AlertTriangle className="w-6 h-6 text-red-600 mt-1" />
+                                        <div>
+                                            <h4 className="font-bold text-red-900">{t('taxDebt')}</h4>
+                                            <p className="text-sm text-red-800 mt-1">
+                                                This entity currently has an outstanding tax balance of <span className="font-bold">{tCurrency(selectedCompany.taxDebt)}</span>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-green-50 border border-green-200 p-4 rounded-lg flex items-start gap-3">
+                                        <CheckCircle className="w-6 h-6 text-green-600 mt-1" />
+                                        <div>
+                                            <h4 className="font-bold text-green-900">{t('goodStanding')}</h4>
+                                            <p className="text-sm text-green-800 mt-1">
+                                                No tax debts recorded. The entity is in good financial standing with the revenue authority.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                         </div>
+                     </div>
+                )}
+
+                {activeTab === 'VISUALIZER' && (
+                    <div className="animate-fadeIn min-h-[400px] flex items-center justify-center bg-slate-50 rounded-lg border border-slate-200 relative overflow-hidden">
+                        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-300 via-slate-100 to-slate-200"></div>
+                        <div className="relative z-10 text-center w-full max-w-lg">
+                            {/* Simple Tree Viz */}
+                            <div className="flex flex-col items-center">
+                                <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg mb-8 relative">
+                                    <Building2 className="w-6 h-6 mx-auto mb-2" />
+                                    <span className="font-bold">{tData(selectedCompany.name)}</span>
+                                    <div className="absolute -bottom-8 left-1/2 w-0.5 h-8 bg-slate-300"></div>
+                                </div>
+                                
+                                <div className="flex justify-center gap-8 flex-wrap">
+                                    {selectedCompany.managementBoard.map((m, i) => (
+                                        <div key={i} className="flex flex-col items-center">
+                                            <div className="w-0.5 h-8 bg-slate-300 -mt-8 mb-0"></div>
+                                            <div className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm text-sm flex items-center gap-2 mt-4">
+                                                <User className="w-4 h-4 text-blue-500" />
+                                                {m}
+                                                <span className="text-xs text-slate-400 block">(Board)</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                     {selectedCompany.relationships.map((r, i) => (
+                                        <div key={'r'+i} className="flex flex-col items-center">
+                                            <div className="w-0.5 h-8 bg-slate-300 -mt-8 mb-0"></div>
+                                            <div className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm text-sm flex items-center gap-2 mt-4">
+                                                <Briefcase className="w-4 h-4 text-green-500" />
+                                                {tData(r.entity)}
+                                                <span className="text-xs text-slate-400 block">({r.type})</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {selectedCompany.managementBoard.length === 0 && selectedCompany.relationships.length === 0 && (
+                                <p className="text-slate-500">No relationship data available to visualize.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'REPORTS' && (
+                    <div className="animate-fadeIn">
+                        <table className="min-w-full divide-y divide-slate-300">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-slate-900">{t('year')}</th>
+                                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">{t('filedBy')}</th>
+                                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">{t('revenue')}</th>
+                                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">{t('txVolume')}</th>
+                                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">{t('status')}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 bg-white">
+                                {selectedCompany.reports.map((report) => (
+                                    <tr key={report.year}>
+                                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-bold text-slate-900">{tData(report.year)}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{report.filedBy || '-'}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{report.revenue ? tCurrency(report.revenue) : '-'}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{tData(report.transactionVolume) || '-'}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
+                                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                                                report.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                                                report.status === 'Submitted' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>
+                                                {tData(report.status)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {activeTab === 'HISTORY' && (
+                    <div className="animate-fadeIn">
+                        <div className="flow-root">
+                            <ul role="list" className="-mb-8">
+                                {selectedCompany.history.map((log, logIdx) => (
+                                    <li key={log.id}>
+                                        <div className="relative pb-8">
+                                            {logIdx !== selectedCompany.history.length - 1 ? (
+                                                <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true" />
+                                            ) : null}
+                                            <div className="relative flex space-x-3">
+                                                <div>
+                                                    <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                                                        log.action.includes('REGISTRATION') ? 'bg-green-500' : 'bg-blue-500'
+                                                    }`}>
+                                                        <History className="h-4 w-4 text-white" aria-hidden="true" />
+                                                    </span>
+                                                </div>
+                                                <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-900">{log.action}</p>
+                                                        <p className="text-sm text-slate-600 mt-1">{log.details}</p>
+                                                        <p className="text-xs text-slate-400 font-mono mt-0.5">Hash: {log.hash}</p>
+                                                    </div>
+                                                    <div className="whitespace-nowrap text-right text-xs text-slate-500">
+                                                        <time dateTime={log.timestamp}>{tDate(log.timestamp)}</time>
+                                                        <p className="mt-1 font-medium text-slate-600">{log.actor}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNameCheckView = () => (
+    <div className="bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-xl shadow-lg max-w-lg w-full text-center">
+        <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Search className="w-8 h-8 text-blue-600" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">{t('checkName')}</h2>
+        <p className="text-slate-500 mb-8">Ensure your desired business name is available before registration.</p>
+        
+        <div className="relative mb-6">
+           <input 
+              type="text" 
+              value={nameCheckValue}
+              onChange={(e) => setNameCheckValue(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              placeholder="Enter proposed name..."
+           />
+           {nameAvailability === 'CHECKING' && (
+             <div className="absolute right-3 top-3">
+               <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+             </div>
+           )}
+        </div>
+
+        <button 
+           onClick={() => checkNameAvailability(nameCheckValue)}
+           disabled={!nameCheckValue.trim() || nameAvailability === 'CHECKING'}
+           className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          Check Availability
+        </button>
+
+        {nameAvailability === 'AVAILABLE' && (
+           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2 justify-center">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-bold">Name is available!</span>
+           </div>
+        )}
+
+        {nameAvailability === 'TAKEN' && (
+           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2 justify-center">
+              <XCircle className="w-5 h-5" />
+              <span className="font-bold">Name is already taken.</span>
+           </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderOpenData = () => (
+    <div className="bg-slate-50 min-h-[calc(100vh-64px)] p-8">
+       <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+             <div className="p-8 bg-slate-900 text-white">
+                <h2 className="text-3xl font-bold mb-4 flex items-center gap-3">
+                   <Database className="w-8 h-8" />
+                   Open Data Portal
+                </h2>
+                <p className="text-slate-300 text-lg">
+                   Access bulk registry data in machine-readable formats. 
+                   Promoting transparency and economic research.
+                </p>
+             </div>
+             <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <button onClick={() => downloadData('JSON')} className="flex flex-col items-center p-6 border-2 border-slate-100 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group">
+                   <FileCode className="w-12 h-12 text-slate-400 group-hover:text-blue-600 mb-4" />
+                   <span className="font-bold text-lg">JSON Format</span>
+                   <span className="text-sm text-slate-500 mt-2">Full structured data</span>
+                   <span className="mt-4 text-blue-600 text-sm font-bold flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      Download <Download className="w-3 h-3 ml-1" />
+                   </span>
+                </button>
+
+                <button onClick={() => downloadData('CSV')} className="flex flex-col items-center p-6 border-2 border-slate-100 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
+                   <FileSpreadsheet className="w-12 h-12 text-slate-400 group-hover:text-green-600 mb-4" />
+                   <span className="font-bold text-lg">CSV Format</span>
+                   <span className="text-sm text-slate-500 mt-2">Spreadsheet compatible</span>
+                   <span className="mt-4 text-green-600 text-sm font-bold flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      Download <Download className="w-3 h-3 ml-1" />
+                   </span>
+                </button>
+
+                <button onClick={() => downloadData('XML')} className="flex flex-col items-center p-6 border-2 border-slate-100 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group">
+                   <FileText className="w-12 h-12 text-slate-400 group-hover:text-orange-600 mb-4" />
+                   <span className="font-bold text-lg">XML Format</span>
+                   <span className="text-sm text-slate-500 mt-2">Legacy systems</span>
+                   <span className="mt-4 text-orange-600 text-sm font-bold flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      Download <Download className="w-3 h-3 ml-1" />
+                   </span>
+                </button>
+             </div>
+             <div className="bg-slate-50 p-6 border-t border-slate-200 text-center text-sm text-slate-500">
+                Data is updated daily at 00:00 GMT. Last update: {new Date().toLocaleDateString()}
+             </div>
+          </div>
+       </div>
+    </div>
+  );
+
+  const renderLogin = () => (
+    <div className="bg-slate-50 min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
+       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="flex border-b border-slate-200">
+             <button 
+                onClick={() => setLoginTab('PERSONAL')}
+                className={`flex-1 py-4 text-sm font-bold ${loginTab === 'PERSONAL' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500'}`}
+             >
+                Personal / Admin
+             </button>
+             <button 
+                onClick={() => setLoginTab('BUSINESS')}
+                className={`flex-1 py-4 text-sm font-bold ${loginTab === 'BUSINESS' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500'}`}
+             >
+                Business Entity
+             </button>
+          </div>
+          
+          <div className="p-8">
+             {loginTab === 'PERSONAL' ? (
+                <div className="space-y-4">
+                   <p className="text-sm text-slate-600 mb-6">Log in to manage your filings or access administrative tools.</p>
+                   <button onClick={() => handleLogin('USER')} className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-lg font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                      <User className="w-4 h-4" /> Login as Citizen
+                   </button>
+                   <div className="relative flex py-2 items-center">
+                      <div className="flex-grow border-t border-slate-300"></div>
+                      <span className="flex-shrink-0 mx-4 text-slate-400 text-xs">OFFICIAL USE ONLY</span>
+                      <div className="flex-grow border-t border-slate-300"></div>
+                   </div>
+                   <button onClick={() => handleLogin('ADMIN')} className="w-full bg-slate-800 text-white py-3 rounded-lg font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2">
+                      <ShieldCheck className="w-4 h-4" /> Login as Registrar
+                   </button>
+                </div>
+             ) : (
+                <div className="space-y-4">
+                   <p className="text-sm text-slate-600 mb-6">Enter your Business Registry Code to access your company portal.</p>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase">Registry Code</label>
+                      <input 
+                         type="text" 
+                         value={businessIdInput}
+                         onChange={(e) => setBusinessIdInput(e.target.value)}
+                         placeholder="e.g. SL-2023-001245"
+                         className="w-full mt-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                   </div>
+                   <button onClick={handleBusinessLogin} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                      Access Portal
+                   </button>
+                </div>
+             )}
+          </div>
+       </div>
+    </div>
+  );
+
+  const renderPortalDashboard = () => {
+    if (!currentUser) return null;
+
+    // For Business Users
+    if (currentUser.role === 'BUSINESS') {
+        const myCompany = companies.find(c => c.id === currentUser.companyId);
+        if (!myCompany) return <div>Error: Company not found</div>;
+
+        return (
+            <div className="bg-slate-50 min-h-[calc(100vh-64px)] p-6">
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                           <h1 className="text-2xl font-bold text-slate-900">Business Portal</h1>
+                           <p className="text-slate-500">Welcome back, {myCompany.name}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                           <h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Compliance Status</h3>
+                           <div className="flex items-center gap-2">
+                              {myCompany.reports.some(r => r.status === 'Missing') || myCompany.taxDebt > 0 ? (
+                                  <>
+                                    <AlertTriangle className="w-6 h-6 text-red-500" />
+                                    <span className="text-xl font-bold text-red-700">Action Required</span>
+                                  </>
+                              ) : (
+                                  <>
+                                    <CheckCircle className="w-6 h-6 text-green-500" />
+                                    <span className="text-xl font-bold text-green-700">Compliant</span>
+                                  </>
+                              )}
+                           </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Next Report Due</h3>
+                            <p className="text-xl font-bold text-slate-900">31 Mar 2024</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                             <h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Quick Actions</h3>
+                             <div className="flex gap-2">
+                                <button onClick={() => { setReportingCompanyId(myCompany.id); setView('PORTAL_FILE_REPORT'); }} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold hover:bg-blue-200">File Report</button>
+                                <button onClick={() => { setReportingCompanyId(myCompany.id); setView('PORTAL_EDIT_DETAILS'); }} className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm font-bold hover:bg-slate-200">Edit Info</button>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    } 
+
+    // For Personal Users
+    const myCompanies = companies.filter(c => c.managementBoard.includes(currentUser.name));
+
+    return (
+        <div className="bg-slate-50 min-h-[calc(100vh-64px)] p-6">
+            <div className="max-w-6xl mx-auto">
+                <div className="mb-8">
+                    <h1 className="text-2xl font-bold text-slate-900">User Dashboard</h1>
+                    <p className="text-slate-500">Managing filings for {currentUser.name}</p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-200 bg-slate-50">
+                        <h2 className="font-bold text-lg">My Managed Entities</h2>
+                    </div>
+                    {myCompanies.length > 0 ? (
+                        <div className="divide-y divide-slate-100">
+                            {myCompanies.map(company => (
+                                <div key={company.id} className="p-6 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-lg text-slate-900">{company.name}</h3>
+                                        <p className="text-sm text-slate-500">{company.registryCode} • {company.legalForm}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                         <span className={`px-2 py-1 rounded text-xs font-bold ${company.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{company.status}</span>
+                                         <button onClick={() => { setReportingCompanyId(company.id); setView('PORTAL_FILE_REPORT'); }} className="text-blue-600 hover:text-blue-800 font-medium text-sm">File Report</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center text-slate-500">
+                            <p>You are not listed as a director or manager for any registered entity.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+  };
+
+  const renderFileReport = () => {
     if (!reportingCompanyId) return null;
+    const company = companies.find(c => c.id === reportingCompanyId);
+    if (!company) return null;
+
+    return (
+        <div className="max-w-2xl mx-auto px-4 py-8 min-h-[calc(100vh-64px)]">
+             <button onClick={() => setView('PORTAL_DASHBOARD')} className="flex items-center text-sm text-slate-500 hover:text-blue-600 mb-6">
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+            </button>
+            <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <FileText className="w-6 h-6 text-blue-600" />
+                    {t('fileReport')}
+                </h2>
+                <div className="mb-6 p-4 bg-slate-50 rounded">
+                    <p className="font-bold">{tData(company.name)}</p>
+                    <p className="text-sm text-slate-500">{company.registryCode}</p>
+                </div>
+                
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    handleUserSubmitReport(
+                        company.id,
+                        Number(formData.get('year')),
+                        Number(formData.get('revenue')),
+                        Number(formData.get('txVolume'))
+                    );
+                }} className="space-y-6">
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Fiscal Year</label>
+                        <input name="year" type="number" defaultValue={new Date().getFullYear() - 1} className="w-full border rounded px-4 py-2" required />
+                     </div>
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('revenue')}</label>
+                        <input name="revenue" type="number" className="w-full border rounded px-4 py-2" required />
+                     </div>
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('txVolume')} (Proven)</label>
+                        <input name="txVolume" type="number" className="w-full border rounded px-4 py-2" required placeholder="Total confirmed transactions" />
+                        <p className="text-xs text-slate-500 mt-1">Requires Admin Verification</p>
+                     </div>
+                     
+                     <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+                         Submit for Approval
+                     </button>
+                </form>
+            </div>
+        </div>
+    );
+  };
+
+  const renderEditCompanyDetails = () => {
+    if (!reportingCompanyId) return null; // Reuse this state variable for the company ID to edit
     const company = companies.find(c => c.id === reportingCompanyId);
     if (!company) return null;
 
@@ -710,114 +1700,6 @@ export default function App() {
     );
   };
 
-  const renderFileReport = () => {
-    if (!reportingCompanyId) return null;
-    const company = companies.find(c => c.id === reportingCompanyId);
-    if (!company) return null;
-
-    return (
-        <div className="max-w-2xl mx-auto px-4 py-8 min-h-[calc(100vh-64px)]">
-             <button onClick={() => setView('PORTAL_DASHBOARD')} className="flex items-center text-sm text-slate-500 hover:text-blue-600 mb-6">
-                <ArrowLeft className="w-4 h-4 mr-1" /> Back
-            </button>
-            <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <FileText className="w-6 h-6 text-blue-600" />
-                    {t('fileReport')}
-                </h2>
-                <div className="mb-6 p-4 bg-slate-50 rounded">
-                    <p className="font-bold">{company.name}</p>
-                    <p className="text-sm text-slate-500">{company.registryCode}</p>
-                </div>
-                
-                <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    handleUserSubmitReport(
-                        company.id,
-                        Number(formData.get('year')),
-                        Number(formData.get('revenue')),
-                        Number(formData.get('txVolume'))
-                    );
-                }} className="space-y-6">
-                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Fiscal Year</label>
-                        <input name="year" type="number" defaultValue={new Date().getFullYear() - 1} className="w-full border rounded px-4 py-2" required />
-                     </div>
-                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('revenue')}</label>
-                        <input name="revenue" type="number" className="w-full border rounded px-4 py-2" required />
-                     </div>
-                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">{t('txVolume')} (Proven)</label>
-                        <input name="txVolume" type="number" className="w-full border rounded px-4 py-2" required placeholder="Total confirmed transactions" />
-                        <p className="text-xs text-slate-500 mt-1">Requires Admin Verification</p>
-                     </div>
-                     
-                     <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
-                         Submit for Approval
-                     </button>
-                </form>
-            </div>
-        </div>
-    );
-  };
-
-  const renderPortalDashboard = () => {
-    // If Business Login, show single company. If User Login, show all associated.
-    let myCompanies: Company[] = [];
-    if (currentUser?.role === 'BUSINESS' && currentUser.companyId) {
-        const c = companies.find(x => x.id === currentUser.companyId);
-        if (c) myCompanies = [c];
-    } else if (currentUser?.role === 'USER') {
-        myCompanies = companies.filter(c => c.managementBoard.includes(currentUser.name));
-    }
-
-    return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-64px)]">
-        <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">{t('myPortal')}</h1>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold">{currentUser?.role === 'BUSINESS' ? 'BUSINESS ADMIN' : 'AUTHORIZED USER'}</span>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold mb-4 border-b pb-2">Managed Entities</h2>
-            {myCompanies.length > 0 ? (
-                <div className="space-y-4">
-                    {myCompanies.map(c => (
-                        <div key={c.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 gap-4">
-                            <div>
-                                <p className="font-bold text-slate-800 text-lg">{c.name}</p>
-                                <div className="flex gap-3 text-sm text-slate-500">
-                                    <span>{c.registryCode}</span>
-                                    <span>•</span>
-                                    <span className={c.status === 'Active' ? 'text-green-600 font-medium' : 'text-red-500'}>{c.status}</span>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={() => { setReportingCompanyId(c.id); setView('PORTAL_EDIT_DETAILS'); }}
-                                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-bold rounded hover:bg-slate-100 transition flex items-center gap-2"
-                                >
-                                    <PenTool className="w-4 h-4" /> {t('editProfile')}
-                                </button>
-                                <button 
-                                    onClick={() => { setReportingCompanyId(c.id); setView('PORTAL_FILE_REPORT'); }}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700 transition flex items-center gap-2"
-                                >
-                                    <FileText className="w-4 h-4" /> {t('fileReport')}
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-slate-500 italic">No associated entities found.</p>
-            )}
-        </div>
-    </div>
-  )};
-
   const renderAdminDashboard = () => {
     // Get Pending Reports
     const pendingReports = companies.flatMap(c => 
@@ -877,10 +1759,10 @@ export default function App() {
                 <tbody className="bg-white divide-y divide-slate-200">
                     {pendingReports.map(({company, report}) => (
                         <tr key={`${company.id}-${report.year}`}>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{company.name}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{report.year}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatCurrency(report.revenue || 0)}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{report.transactionVolume}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{tData(company.name)}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tData(report.year)}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tCurrency(report.revenue || 0)}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tData(report.transactionVolume)}</td>
                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
                                 <button onClick={() => handleAdminReviewReport(company.id, report.year, true)} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition">{t('approve')}</button>
                                 <button onClick={() => handleAdminReviewReport(company.id, report.year, false)} className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition">{t('reject')}</button>
@@ -912,15 +1794,15 @@ export default function App() {
                     {companies.map(c => (
                         <tr key={c.id}>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-slate-900">{c.name}</div>
+                                <div className="text-sm font-medium text-slate-900">{tData(c.name)}</div>
                                 <div className="text-xs text-slate-500">{c.registryCode}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                    {c.status}
+                                    {tData(c.status)}
                                 </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{c.reports[0]?.year || 'None'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tData(c.reports[0]?.year) || 'None'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button onClick={() => setEditingCompanyId(c.id)} className="text-blue-600 hover:text-blue-900 flex items-center justify-end gap-1 ml-auto">
                                     <Settings className="w-4 h-4" /> Manage
@@ -942,7 +1824,7 @@ export default function App() {
                         return (
                             <div className="p-6">
                                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                                    <h2 className="text-xl font-bold">Manage Status: {target.name}</h2>
+                                    <h2 className="text-xl font-bold">Manage Status: {tData(target.name)}</h2>
                                     <button onClick={() => setEditingCompanyId(null)} className="text-slate-400 hover:text-red-500"><XCircle className="w-6 h-6" /></button>
                                 </div>
                                 <div className="space-y-6">
@@ -985,10 +1867,10 @@ export default function App() {
     );
   };
 
-  // ... (Keep existing renderCompanyDetail, renderSearch, renderNameCheckView, renderOpenData)
+  // --- RENDER RETURN ---
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900" onMouseOver={handleGlobalMouseOver}>
       {renderNavbar()}
       
       <main className="flex-grow">
@@ -1013,7 +1895,7 @@ export default function App() {
         </div>
       </footer>
       <AIAssistant onThinking={setIsAIThinking} />
-      <SignLanguageInterpreter isActive={signLanguageMode} isSigning={isAIThinking} />
+      <SignLanguageInterpreter isActive={signLanguageMode} isSigning={isAIThinking} hoverText={hoverText} />
     </div>
   );
 }
